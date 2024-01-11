@@ -1,7 +1,12 @@
 name: tsumeshogi-bot
 
 on:
+  schedule:
+    - cron: "0 */3 * * *"
   workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   bot:
@@ -11,5 +16,15 @@ jobs:
       BSKY_PASSWORD: ${{ secrets.BSKY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
+      # https://github.com/actions/cache/blob/main/examples.md#rust---cargo
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Run
         run: cargo run
