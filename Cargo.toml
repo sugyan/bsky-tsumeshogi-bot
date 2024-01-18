@@ -13,4 +13,6 @@ chrono = "0.4.31"
 regex = "1.10.2"
 reqwest = "0.11.22"
 select = "0.6.0"
+shogi-img = { git = "https://github.com/sugyan/shogi-img.git", rev = "bb50c7b" }
+shogi-kifu-converter = "0.2.1"
 tokio = { version = "1.34.0", features = ["macros", "rt"] }

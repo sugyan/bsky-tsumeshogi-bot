@@ -47,6 +47,27 @@ impl BskyAgent {
             })
             .await
     }
+    pub async fn embed_image(
+        &self,
+        data: Vec<u8>,
+        alt: String,
+    ) -> Result<
+        atrium_api::app::bsky::feed::post::RecordEmbedEnum,
+        atrium_api::xrpc::error::Error<atrium_api::com::atproto::repo::upload_blob::Error>,
+    > {
+        let output = self.agent.api.com.atproto.repo.upload_blob(data).await?;
+        Ok(
+            atrium_api::app::bsky::feed::post::RecordEmbedEnum::AppBskyEmbedImagesMain(Box::new(
+                atrium_api::app::bsky::embed::images::Main {
+                    images: vec![atrium_api::app::bsky::embed::images::Image {
+                        alt,
+                        aspect_ratio: None,
+                        image: output.blob,
+                    }],
+                },
+            )),
+        )
+    }
     pub async fn embed_external(
         &self,
         uri: &str,
@@ -79,6 +100,7 @@ impl BskyAgent {
         &self,
         text: String,
         embed: Option<atrium_api::app::bsky::feed::post::RecordEmbedEnum>,
+        facets: Option<Vec<atrium_api::app::bsky::richtext::facet::Main>>,
     ) -> Result<
         atrium_api::com::atproto::repo::create_record::Output,
         atrium_api::xrpc::error::Error<atrium_api::com::atproto::repo::create_record::Error>,
@@ -96,7 +118,7 @@ impl BskyAgent {
                         created_at: Local::now().to_rfc3339(),
                         embed,
                         entities: None,
-                        facets: None,
+                        facets,
                         labels: None,
                         langs: Some(vec!["ja".into()]),
                         reply: None,
@@ -123,4 +145,50 @@ impl Default for BskyAgent {
             session: Arc::new(RwLock::new(None)),
         }
     }
+}
+
+pub fn create_facets(
+    text: String,
+    uri: String,
+) -> Option<Vec<atrium_api::app::bsky::richtext::facet::Main>> {
+    text.find(&uri).map(|pos| {
+        let index = atrium_api::app::bsky::richtext::facet::ByteSlice {
+            byte_end: (pos + uri.len()) as i32,
+            byte_start: pos as i32,
+        };
+        vec![atrium_api::app::bsky::richtext::facet::Main {
+            features: vec![
+                atrium_api::app::bsky::richtext::facet::MainFeaturesItem::Link(Box::new(
+                    atrium_api::app::bsky::richtext::facet::Link { uri },
+                )),
+            ],
+            index,
+        }]
+    })
+}
+
+pub fn collect_uris(post_view: &atrium_api::app::bsky::feed::defs::PostView) -> Vec<String> {
+    let mut ret = Vec::new();
+    if let atrium_api::records::Record::AppBskyFeedPost(record) = &post_view.record {
+        // external embed
+        if let Some(atrium_api::app::bsky::feed::post::RecordEmbedEnum::AppBskyEmbedExternalMain(
+            external,
+        )) = &record.embed
+        {
+            ret.push(external.external.uri.clone());
+        }
+        // link facet feature
+        if let Some(facets) = &record.facets {
+            for facet in facets {
+                for feature in &facet.features {
+                    if let atrium_api::app::bsky::richtext::facet::MainFeaturesItem::Link(link) =
+                        feature
+                    {
+                        ret.push(link.uri.clone());
+                    }
+                }
+            }
+        }
+    }
+    ret
 }
