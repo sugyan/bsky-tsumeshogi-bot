@@ -11,10 +11,10 @@ use std::io::{BufWriter, Cursor};
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // prepare bsky agent
+    let identifier = env::var("BSKY_IDENTIFIER").expect("BSKY_IDENTIFIER is not set");
+    let password = env::var("BSKY_PASSWORD").expect("BSKY_PASSWORD is not set");
     let agent = BskyAgent::default();
-    let session = agent
-        .login(&env::var("BSKY_IDENTIFIER")?, &env::var("BSKY_PASSWORD")?)
-        .await?;
+    let session = agent.login(&identifier, &password).await?;
     // collect uris from recent posts
     let mut uris = HashMap::new();
     let feeds = agent.get_feeds(&session.did).await?;

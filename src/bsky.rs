@@ -1,8 +1,8 @@
 use crate::scraper::Ogp;
 use atrium_api::agent::store::MemorySessionStore;
 use atrium_api::agent::AtpAgent;
+use atrium_api::types::string::Datetime;
 use atrium_xrpc_client::reqwest::ReqwestClient;
-use chrono::Local;
 use std::sync::{Arc, RwLock};
 
 pub struct BskyAgent {
@@ -40,10 +40,10 @@ impl BskyAgent {
             .bsky
             .feed
             .get_author_feed(atrium_api::app::bsky::feed::get_author_feed::Parameters {
-                actor: actor.into(),
+                actor: actor.parse().expect("invalid actor"),
                 cursor: None,
                 filter: Some("posts_no_replies".into()),
-                limit: Some(100),
+                limit: 20.try_into().ok(),
             })
             .await
     }
@@ -105,22 +105,24 @@ impl BskyAgent {
         atrium_api::com::atproto::repo::create_record::Output,
         atrium_api::xrpc::error::Error<atrium_api::com::atproto::repo::create_record::Error>,
     > {
-        let repo = self.session.read().unwrap().as_ref().unwrap().did.clone();
+        let repo = atrium_api::types::string::AtIdentifier::Did(
+            self.session.read().unwrap().as_ref().unwrap().did.clone(),
+        );
         self.agent
             .api
             .com
             .atproto
             .repo
             .create_record(atrium_api::com::atproto::repo::create_record::Input {
-                collection: "app.bsky.feed.post".into(),
+                collection: "app.bsky.feed.post".parse().expect("invalid collection"),
                 record: atrium_api::records::Record::AppBskyFeedPost(Box::new(
                     atrium_api::app::bsky::feed::post::Record {
-                        created_at: Local::now().to_rfc3339(),
+                        created_at: Datetime::now(),
                         embed,
                         entities: None,
                         facets,
                         labels: None,
-                        langs: Some(vec!["ja".into()]),
+                        langs: Some(vec!["ja".parse().expect("invalid language")]),
                         reply: None,
                         tags: None,
                         text,
@@ -153,8 +155,8 @@ pub fn create_facets(
 ) -> Option<Vec<atrium_api::app::bsky::richtext::facet::Main>> {
     text.find(&uri).map(|pos| {
         let index = atrium_api::app::bsky::richtext::facet::ByteSlice {
-            byte_end: (pos + uri.len()) as i32,
-            byte_start: pos as i32,
+            byte_end: pos + uri.len(),
+            byte_start: pos,
         };
         vec![atrium_api::app::bsky::richtext::facet::Main {
             features: vec![

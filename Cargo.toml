@@ -7,9 +7,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.79"
-atrium-api = "0.15.0"
-atrium-xrpc-client = "0.2.0"
-chrono = "0.4.31"
+atrium-api = "0.17.2"
+atrium-xrpc-client = "0.3.0"
 regex = "1.10.2"
 reqwest = "0.11.22"
 select = "0.6.0"

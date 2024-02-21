@@ -87,14 +87,17 @@ dependencies = [
 
 [[package]]
 name = "atrium-api"
-version = "0.15.0"
+version = "0.17.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68eac39fc21a9de3321623973365f8865f50fd952ca2c72ab7f9bea1fa07cc12"
+checksum = "ecdec5d648ad865893d251c3bccf61a68061ea55f348cb4a501909be9b531b8c"
 dependencies = [
  "async-trait",
  "atrium-xrpc",
+ "chrono",
  "cid",
  "http",
+ "langtag",
+ "regex",
  "serde",
  "serde_bytes",
  "tokio",
@@ -102,9 +105,9 @@ dependencies = [
 
 [[package]]
 name = "atrium-xrpc"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34bdc4a755c1e14ef8b2991423d2f7f258c561996f4ad6234df7223662a20dcb"
+checksum = "11308889f2c562994243d9bd22e569c9dbb75a10c24d720de27b42e470aeeac3"
 dependencies = [
  "async-trait",
  "http",
@@ -116,9 +119,9 @@ dependencies = [
 
 [[package]]
 name = "atrium-xrpc-client"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6179774561f982cfc6366714172d19742e47f739d51d178e8b9d617f17f56115"
+checksum = "a1a745e5f6c0b725307b92928dc18f24ef3fdf56ad1e24c4222bfbbeb66b0221"
 dependencies = [
  "async-trait",
  "atrium-xrpc",
@@ -237,7 +240,6 @@ dependencies = [
  "anyhow",
  "atrium-api",
  "atrium-xrpc-client",
- "chrono",
  "regex",
  "reqwest",
  "select",
@@ -295,6 +297,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-targets 0.48.5",
 ]
@@ -309,7 +312,6 @@ dependencies = [
  "multibase",
  "multihash",
  "serde",
- "serde_bytes",
  "unsigned-varint",
 ]
 
@@ -844,6 +846,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "langtag"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed60c85f254d6ae8450cec15eedd921efbc4d1bdf6fcf6202b9a58b403f6f805"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -981,8 +992,6 @@ dependencies = [
  "core2",
  "digest",
  "multihash-derive",
- "serde",
- "serde-big-array",
  "sha2",
  "sha3",
  "unsigned-varint",
@@ -1631,15 +1640,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25dd9975e68d0cb5aa1120c288333fc98731bd1dd12f561e468ea4728c042b89"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde-big-array"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd31f59f6fe2b0c055371bb2f16d7f0aa7d8881676c04a55b1596d1a17cd10a4"
-dependencies = [
- "serde",
 ]
 
 [[package]]
