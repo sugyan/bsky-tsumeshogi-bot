@@ -1,7 +1,8 @@
 use crate::scraper::Ogp;
 use atrium_api::agent::store::MemorySessionStore;
 use atrium_api::agent::AtpAgent;
-use atrium_api::types::string::Datetime;
+use atrium_api::records::{KnownRecord, Record};
+use atrium_api::types::{string::Datetime, Union};
 use atrium_xrpc_client::reqwest::ReqwestClient;
 use std::sync::{Arc, RwLock};
 
@@ -52,12 +53,12 @@ impl BskyAgent {
         data: Vec<u8>,
         alt: String,
     ) -> Result<
-        atrium_api::app::bsky::feed::post::RecordEmbedEnum,
+        Union<atrium_api::app::bsky::feed::post::RecordEmbedRefs>,
         atrium_api::xrpc::error::Error<atrium_api::com::atproto::repo::upload_blob::Error>,
     > {
         let output = self.agent.api.com.atproto.repo.upload_blob(data).await?;
-        Ok(
-            atrium_api::app::bsky::feed::post::RecordEmbedEnum::AppBskyEmbedImagesMain(Box::new(
+        Ok(Union::Refs(
+            atrium_api::app::bsky::feed::post::RecordEmbedRefs::AppBskyEmbedImagesMain(Box::new(
                 atrium_api::app::bsky::embed::images::Main {
                     images: vec![atrium_api::app::bsky::embed::images::Image {
                         alt,
@@ -66,7 +67,7 @@ impl BskyAgent {
                     }],
                 },
             )),
-        )
+        ))
     }
     pub async fn embed_external(
         &self,
@@ -74,7 +75,7 @@ impl BskyAgent {
         ogp: &Ogp,
         thumb_data: Option<Vec<u8>>,
     ) -> Result<
-        atrium_api::app::bsky::feed::post::RecordEmbedEnum,
+        Union<atrium_api::app::bsky::feed::post::RecordEmbedRefs>,
         atrium_api::xrpc::error::Error<atrium_api::com::atproto::repo::upload_blob::Error>,
     > {
         let thumb = if let Some(data) = thumb_data {
@@ -83,8 +84,8 @@ impl BskyAgent {
         } else {
             None
         };
-        Ok(
-            atrium_api::app::bsky::feed::post::RecordEmbedEnum::AppBskyEmbedExternalMain(Box::new(
+        Ok(Union::Refs(
+            atrium_api::app::bsky::feed::post::RecordEmbedRefs::AppBskyEmbedExternalMain(Box::new(
                 atrium_api::app::bsky::embed::external::Main {
                     external: atrium_api::app::bsky::embed::external::External {
                         description: ogp.description.clone(),
@@ -94,12 +95,12 @@ impl BskyAgent {
                     },
                 },
             )),
-        )
+        ))
     }
     pub async fn create_post(
         &self,
         text: String,
-        embed: Option<atrium_api::app::bsky::feed::post::RecordEmbedEnum>,
+        embed: Option<Union<atrium_api::app::bsky::feed::post::RecordEmbedRefs>>,
         facets: Option<Vec<atrium_api::app::bsky::richtext::facet::Main>>,
     ) -> Result<
         atrium_api::com::atproto::repo::create_record::Output,
@@ -115,7 +116,7 @@ impl BskyAgent {
             .repo
             .create_record(atrium_api::com::atproto::repo::create_record::Input {
                 collection: "app.bsky.feed.post".parse().expect("invalid collection"),
-                record: atrium_api::records::Record::AppBskyFeedPost(Box::new(
+                record: Record::Known(KnownRecord::AppBskyFeedPost(Box::new(
                     atrium_api::app::bsky::feed::post::Record {
                         created_at: Datetime::now(),
                         embed,
@@ -127,7 +128,7 @@ impl BskyAgent {
                         tags: None,
                         text,
                     },
-                )),
+                ))),
                 repo,
                 rkey: None,
                 swap_commit: None,
@@ -159,11 +160,11 @@ pub fn create_facets(
             byte_start: pos,
         };
         vec![atrium_api::app::bsky::richtext::facet::Main {
-            features: vec![
+            features: vec![Union::Refs(
                 atrium_api::app::bsky::richtext::facet::MainFeaturesItem::Link(Box::new(
                     atrium_api::app::bsky::richtext::facet::Link { uri },
                 )),
-            ],
+            )],
             index,
         }]
     })
@@ -171,10 +172,10 @@ pub fn create_facets(
 
 pub fn collect_uris(post_view: &atrium_api::app::bsky::feed::defs::PostView) -> Vec<String> {
     let mut ret = Vec::new();
-    if let atrium_api::records::Record::AppBskyFeedPost(record) = &post_view.record {
+    if let Record::Known(KnownRecord::AppBskyFeedPost(record)) = &post_view.record {
         // external embed
-        if let Some(atrium_api::app::bsky::feed::post::RecordEmbedEnum::AppBskyEmbedExternalMain(
-            external,
+        if let Some(Union::Refs(
+            atrium_api::app::bsky::feed::post::RecordEmbedRefs::AppBskyEmbedExternalMain(external),
         )) = &record.embed
         {
             ret.push(external.external.uri.clone());
@@ -183,8 +184,9 @@ pub fn collect_uris(post_view: &atrium_api::app::bsky::feed::defs::PostView) -> 
         if let Some(facets) = &record.facets {
             for facet in facets {
                 for feature in &facet.features {
-                    if let atrium_api::app::bsky::richtext::facet::MainFeaturesItem::Link(link) =
-                        feature
+                    if let Union::Refs(
+                        atrium_api::app::bsky::richtext::facet::MainFeaturesItem::Link(link),
+                    ) = feature
                     {
                         ret.push(link.uri.clone());
                     }
