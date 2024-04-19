@@ -68,7 +68,7 @@ fn extract_ogp(doc: &Document) -> Option<Ogp> {
 
 // kif link from script tags
 fn extract_kif(doc: &Document) -> Option<String> {
-    let re = Regex::new(r"'(https://www\.shogi\.or\.jp/tsume_shogi/data/[^/]+\.kif)'")
+    let re = Regex::new(r"'(https://www\.shogi\.or\.jp/tsume_shogi/[^/]+/[^/]+\.kif)'")
         .expect("regex should be valid");
     doc.find(Name("script"))
         .find_map(|script| re.captures(&script.text()).map(|caps| caps[1].to_string()))
