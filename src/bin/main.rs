@@ -54,7 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             agent.embed_external(link, &ogp, thumb_data).await?
         };
         let facets = create_facets(text.clone(), link.clone());
-        println!("{:#?}", agent.create_post(text, Some(embed), facets).await);
+        println!("{:?}", agent.create_post(text, Some(embed), facets).await);
     }
     Ok(())
 }
