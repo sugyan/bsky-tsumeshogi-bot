@@ -7,8 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.79"
-atrium-api = "0.22.2"
-atrium-xrpc-client = "0.5.4"
+bsky-sdk = "0.1.10"
 regex = "1.10.2"
 reqwest = "0.11.22"
 select = "0.6.0"

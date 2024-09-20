@@ -1,4 +1,4 @@
-use bsky_tsumeshogi_bot::bsky::{collect_uris, create_facets, BskyAgent};
+use bsky_tsumeshogi_bot::bsky::{collect_uris, create_facets, BotAgent};
 use bsky_tsumeshogi_bot::scraper::{scrape_everyday_links, scrape_tsumeshogi};
 use shogi_img::image::codecs::png::PngEncoder;
 use shogi_img::shogi_core::Position;
@@ -13,12 +13,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // prepare bsky agent
     let identifier = env::var("BSKY_IDENTIFIER").expect("BSKY_IDENTIFIER is not set");
     let password = env::var("BSKY_PASSWORD").expect("BSKY_PASSWORD is not set");
-    let agent = BskyAgent::default();
+    let agent = BotAgent::new().await?;
     let session = agent.login(&identifier, &password).await?;
     // collect uris from recent posts
     let mut uris = HashMap::new();
     let feeds = agent.get_feeds(&session.did).await?;
-    for view_post in feeds.feed {
+    for view_post in feeds.data.feed {
         for uri in collect_uris(&view_post.post) {
             uris.insert(uri, view_post.post.uri.clone());
         }

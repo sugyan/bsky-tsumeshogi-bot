@@ -1,71 +1,66 @@
 use crate::scraper::Ogp;
-use atrium_api::agent::store::MemorySessionStore;
-use atrium_api::agent::AtpAgent;
-use atrium_api::records::{KnownRecord, Record};
-use atrium_api::types::{string::Datetime, Union};
-use atrium_xrpc_client::reqwest::ReqwestClient;
-use std::sync::{Arc, RwLock};
+use bsky_sdk::api;
+use bsky_sdk::api::types::TryFromUnknown;
+use bsky_sdk::api::types::{string::Datetime, Union};
+use bsky_sdk::{BskyAgent, Result};
+use std::ops::Deref;
 
-pub struct BskyAgent {
-    agent: AtpAgent<MemorySessionStore, ReqwestClient>,
-    session: Arc<RwLock<Option<atrium_api::com::atproto::server::create_session::Output>>>,
+pub struct BotAgent {
+    agent: BskyAgent,
 }
 
-impl BskyAgent {
-    pub async fn login(
-        &self,
-        identifier: &str,
-        password: &str,
-    ) -> Result<
-        atrium_api::com::atproto::server::create_session::Output,
-        atrium_api::xrpc::error::Error<atrium_api::com::atproto::server::create_session::Error>,
-    > {
-        let output = self.agent.login(identifier, password).await;
-        if let Ok(output) = &output {
-            if let Ok(mut session) = self.session.write() {
-                session.replace(output.clone());
-            }
-        }
-        output
+impl Deref for BotAgent {
+    type Target = BskyAgent;
+
+    fn deref(&self) -> &Self::Target {
+        &self.agent
+    }
+}
+
+impl BotAgent {
+    pub async fn new() -> Result<Self> {
+        Ok(Self {
+            agent: BskyAgent::builder().build().await?,
+        })
     }
     pub async fn get_feeds(
         &self,
         actor: &str,
-    ) -> Result<
-        atrium_api::app::bsky::feed::get_author_feed::Output,
-        atrium_api::xrpc::error::Error<atrium_api::app::bsky::feed::get_author_feed::Error>,
-    > {
-        self.agent
+    ) -> Result<api::app::bsky::feed::get_author_feed::Output> {
+        Ok(self
+            .agent
             .api
             .app
             .bsky
             .feed
-            .get_author_feed(atrium_api::app::bsky::feed::get_author_feed::Parameters {
-                actor: actor.parse().expect("invalid actor"),
-                cursor: None,
-                filter: Some("posts_no_replies".into()),
-                limit: 20.try_into().ok(),
-            })
-            .await
+            .get_author_feed(
+                api::app::bsky::feed::get_author_feed::ParametersData {
+                    actor: actor.parse().expect("invalid actor"),
+                    cursor: None,
+                    filter: Some("posts_no_replies".into()),
+                    limit: 20.try_into().ok(),
+                }
+                .into(),
+            )
+            .await?)
     }
     pub async fn embed_image(
         &self,
         data: Vec<u8>,
         alt: String,
-    ) -> Result<
-        Union<atrium_api::app::bsky::feed::post::RecordEmbedRefs>,
-        atrium_api::xrpc::error::Error<atrium_api::com::atproto::repo::upload_blob::Error>,
-    > {
+    ) -> Result<Union<api::app::bsky::feed::post::RecordEmbedRefs>> {
         let output = self.agent.api.com.atproto.repo.upload_blob(data).await?;
         Ok(Union::Refs(
-            atrium_api::app::bsky::feed::post::RecordEmbedRefs::AppBskyEmbedImagesMain(Box::new(
-                atrium_api::app::bsky::embed::images::Main {
-                    images: vec![atrium_api::app::bsky::embed::images::Image {
+            api::app::bsky::feed::post::RecordEmbedRefs::AppBskyEmbedImagesMain(Box::new(
+                api::app::bsky::embed::images::MainData {
+                    images: vec![api::app::bsky::embed::images::ImageData {
                         alt,
                         aspect_ratio: None,
-                        image: output.blob,
-                    }],
-                },
+                        image: output.data.blob,
+                    }
+                    .into()],
+                }
+                .into(),
             )),
         ))
     }
@@ -74,108 +69,79 @@ impl BskyAgent {
         uri: &str,
         ogp: &Ogp,
         thumb_data: Option<Vec<u8>>,
-    ) -> Result<
-        Union<atrium_api::app::bsky::feed::post::RecordEmbedRefs>,
-        atrium_api::xrpc::error::Error<atrium_api::com::atproto::repo::upload_blob::Error>,
-    > {
+    ) -> Result<Union<api::app::bsky::feed::post::RecordEmbedRefs>> {
         let thumb = if let Some(data) = thumb_data {
             let output = self.agent.api.com.atproto.repo.upload_blob(data).await?;
-            Some(output.blob)
+            Some(output.data.blob)
         } else {
             None
         };
         Ok(Union::Refs(
-            atrium_api::app::bsky::feed::post::RecordEmbedRefs::AppBskyEmbedExternalMain(Box::new(
-                atrium_api::app::bsky::embed::external::Main {
-                    external: atrium_api::app::bsky::embed::external::External {
+            api::app::bsky::feed::post::RecordEmbedRefs::AppBskyEmbedExternalMain(Box::new(
+                api::app::bsky::embed::external::MainData {
+                    external: api::app::bsky::embed::external::ExternalData {
                         description: ogp.description.clone(),
                         thumb,
                         title: ogp.title.clone(),
                         uri: uri.into(),
-                    },
-                },
+                    }
+                    .into(),
+                }
+                .into(),
             )),
         ))
     }
     pub async fn create_post(
         &self,
         text: String,
-        embed: Option<Union<atrium_api::app::bsky::feed::post::RecordEmbedRefs>>,
-        facets: Option<Vec<atrium_api::app::bsky::richtext::facet::Main>>,
-    ) -> Result<
-        atrium_api::com::atproto::repo::create_record::Output,
-        atrium_api::xrpc::error::Error<atrium_api::com::atproto::repo::create_record::Error>,
-    > {
-        let repo = atrium_api::types::string::AtIdentifier::Did(
-            self.session.read().unwrap().as_ref().unwrap().did.clone(),
-        );
+        embed: Option<Union<api::app::bsky::feed::post::RecordEmbedRefs>>,
+        facets: Option<Vec<api::app::bsky::richtext::facet::Main>>,
+    ) -> Result<api::com::atproto::repo::create_record::Output> {
         self.agent
-            .api
-            .com
-            .atproto
-            .repo
-            .create_record(atrium_api::com::atproto::repo::create_record::Input {
-                collection: "app.bsky.feed.post".parse().expect("invalid collection"),
-                record: Record::Known(KnownRecord::AppBskyFeedPost(Box::new(
-                    atrium_api::app::bsky::feed::post::Record {
-                        created_at: Datetime::now(),
-                        embed,
-                        entities: None,
-                        facets,
-                        labels: None,
-                        langs: Some(vec!["ja".parse().expect("invalid language")]),
-                        reply: None,
-                        tags: None,
-                        text,
-                    },
-                ))),
-                repo,
-                rkey: None,
-                swap_commit: None,
-                validate: None,
+            .create_record(api::app::bsky::feed::post::RecordData {
+                created_at: Datetime::now(),
+                embed,
+                entities: None,
+                facets,
+                labels: None,
+                langs: Some(vec!["ja".parse().expect("invalid language")]),
+                reply: None,
+                tags: None,
+                text,
             })
             .await
-    }
-}
-
-impl Default for BskyAgent {
-    fn default() -> Self {
-        Self {
-            agent: AtpAgent::new(
-                ReqwestClient::new("https://bsky.social"),
-                MemorySessionStore::default(),
-            ),
-            session: Arc::new(RwLock::new(None)),
-        }
     }
 }
 
 pub fn create_facets(
     text: String,
     uri: String,
-) -> Option<Vec<atrium_api::app::bsky::richtext::facet::Main>> {
+) -> Option<Vec<api::app::bsky::richtext::facet::Main>> {
     text.find(&uri).map(|pos| {
-        let index = atrium_api::app::bsky::richtext::facet::ByteSlice {
+        let index = api::app::bsky::richtext::facet::ByteSliceData {
             byte_end: pos + uri.len(),
             byte_start: pos,
         };
-        vec![atrium_api::app::bsky::richtext::facet::Main {
+        vec![api::app::bsky::richtext::facet::MainData {
             features: vec![Union::Refs(
-                atrium_api::app::bsky::richtext::facet::MainFeaturesItem::Link(Box::new(
-                    atrium_api::app::bsky::richtext::facet::Link { uri },
+                api::app::bsky::richtext::facet::MainFeaturesItem::Link(Box::new(
+                    api::app::bsky::richtext::facet::LinkData { uri }.into(),
                 )),
             )],
-            index,
-        }]
+            index: index.into(),
+        }
+        .into()]
     })
 }
 
-pub fn collect_uris(post_view: &atrium_api::app::bsky::feed::defs::PostView) -> Vec<String> {
+pub fn collect_uris(post_view: &api::app::bsky::feed::defs::PostView) -> Vec<String> {
     let mut ret = Vec::new();
-    if let Record::Known(KnownRecord::AppBskyFeedPost(record)) = &post_view.record {
+    if let Ok(record) =
+        api::app::bsky::feed::post::Record::try_from_unknown(post_view.record.clone())
+    {
         // external embed
         if let Some(Union::Refs(
-            atrium_api::app::bsky::feed::post::RecordEmbedRefs::AppBskyEmbedExternalMain(external),
+            api::app::bsky::feed::post::RecordEmbedRefs::AppBskyEmbedExternalMain(external),
         )) = &record.embed
         {
             ret.push(external.external.uri.clone());
@@ -184,9 +150,9 @@ pub fn collect_uris(post_view: &atrium_api::app::bsky::feed::defs::PostView) -> 
         if let Some(facets) = &record.facets {
             for facet in facets {
                 for feature in &facet.features {
-                    if let Union::Refs(
-                        atrium_api::app::bsky::richtext::facet::MainFeaturesItem::Link(link),
-                    ) = feature
+                    if let Union::Refs(api::app::bsky::richtext::facet::MainFeaturesItem::Link(
+                        link,
+                    )) = feature
                     {
                         ret.push(link.uri.clone());
                     }
