@@ -38,6 +38,7 @@ impl BotAgent {
                     actor: actor.parse().expect("invalid actor"),
                     cursor: None,
                     filter: Some("posts_no_replies".into()),
+                    include_pins: None,
                     limit: 20.try_into().ok(),
                 }
                 .into(),
